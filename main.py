@@ -10,6 +10,7 @@ from langchain.chains import RetrievalQA
 from langchain.chains import RetrievalQAWithSourcesChain
 
 st.title("VoxBox")
+st.text("A minimal interface to an AI with domain knowledge - RAG AI")
 
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 PINECONE_ENV = st.secrets['fair_pinecone_env']
@@ -49,7 +50,7 @@ def generate_response(input_text):
     st.info(llm(input_text))
 
 with st.form('my_form'):
-    text = st.text_area('Enter text: ', 'What are the three key pieces of advice for learning how to code?')
+    text = st.text_area('Enter text: ', 'What questions do you have about fair housing law in Indiana?')
     submitted = st.form_submit_button('Submit')
     if submitted:
         if len(text)>0:
