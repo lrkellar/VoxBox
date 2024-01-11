@@ -43,7 +43,7 @@ def rag_answer(query):
         retriever=vector_store.as_retriever(),
     )
     result = qa_with_sources(query)
-    st.info(result)
+    return(result)
 
 def generate_response(input_text):
     llm = OpenAI(temperature=0.7, openai_api_key=openai_api_key)
@@ -53,6 +53,23 @@ with st.form('my_form'):
     text = st.text_area('Enter text: ', 'What questions do you have about fair housing law in Indiana?')
     submitted = st.form_submit_button('Submit')
     if submitted:
-        if len(text)>0:
-            # generate_response(text)
-            rag_answer(text)
+        if len(text) > 0:
+            response_dict = rag_answer(text)  # Store the entire response dictionary
+
+            # Extract values from the dictionary
+            question = response_dict['question']
+            answer = response_dict['answer']
+            sources = response_dict['sources']
+
+            # Create a layout with columns for question/answer and sources
+            col1, col2 = st.columns([3, 1])  # Adjust column widths as needed
+
+            with col1:
+                st.subheader("Question:")
+                st.write(question)
+                st.subheader("Answer:")
+                st.write(answer, unsafe_allow_html=True)  # Allow HTML formatting if applicable
+
+            with col2:
+                st.subheader("Sources:")
+                st.write(sources, unsafe_allow_html=True)  # Allow HTML formatting if applicable
