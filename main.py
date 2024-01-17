@@ -15,10 +15,12 @@ from langchain.chains import (
 )
 from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import Chroma
+import chromadb
 
 st.title("VoxBox")
 st.text("A minimal interface to an AI with domain knowledge - RAG AI")
-mode = 1
+mode = 3
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 PINECONE_ENV = st.secrets['fair_pinecone_env']
 pinecone_api_key = st.secrets['ritter_pinecone_api']
@@ -37,11 +39,30 @@ if mode == 1:
 
         return vector_store
 
+if mode == 3:
+    @st.cache_resource
+    def chroma_hookup():
+        embedding_function = OpenAIEmbeddings()
+        vector_store = Chroma(
+            persist_directory="db", 
+            embedding_function=embedding_function
+        )
+        return vector_store
+
 def rag_answer(query, vector_store):
     qa_with_sources = RetrievalQAWithSourcesChain.from_chain_type(
         llm=llm,
         chain_type="stuff",
         retriever=vector_store.as_retriever(),
+    )
+    result = qa_with_sources(query)
+    return(result)
+
+def chroma_rag_answer(query, vector_store):
+    qa_with_sources = RetrievalQAWithSourcesChain.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever = vector_store.as_retriever(search_type="mmr")
     )
     result = qa_with_sources(query)
     return(result)
@@ -58,6 +79,18 @@ def get_pdf_text(pdf_docs):
             text += page.extract_text()
     return text
 
+def get_conversation_chain(vectorstore):
+    llm = ChatOpenAI()
+    # llm = HuggingFaceHub(repo_id="google/flan-t5-xxl", model_kwargs={"temperature":0.5, "max_length":512})
+
+    memory = ConversationBufferMemory(
+        memory_key='chat_history', return_messages=True)
+    conversation_chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=vectorstore.as_retriever(),
+        memory=memory
+    )
+    return conversation_chain
 
 with st.form('my_form'):
     text = st.text_area('Enter text: ', 'What questions do you have about fair housing law in Indiana?')
@@ -92,32 +125,14 @@ with st.form('my_form'):
                     st.write(sources, unsafe_allow_html=True)  # Allow HTML formatting if applicable
 
             if mode == 3:
-                embeddings = OpenAIEmbeddings()
-                llm = ChatOpenAI(
-                    openai_api_key=openai_api_key,
-                    model_name='gpt-3.5-turbo',
-                    temperature=0.2
-                )
-                vector_store = embedding_db()
-
-                new_db = FAISS.load_local(r"data\faiss_index", embeddings)
-
-                response_dict = rag_answer(text, vector_store=vector_store)  # Store the entire response dictionary
-
-                # Extract values from the dictionary
-                question = response_dict['question']
-                answer = response_dict['answer']
-                sources = response_dict['sources']
-
-                # Create a layout with columns for question/answer and sources
-                col1, col2 = st.columns([3, 1])  # Adjust column widths as needed
-
-                with col1:
-                    st.subheader("Question:")
-                    st.write(question)
-                    st.subheader("Answer:")
-                    st.write(answer, unsafe_allow_html=True)  # Allow HTML formatting if applicable
-
-                with col2:
-                    st.subheader("Sources:")
-                    st.write(sources, unsafe_allow_html=True)  # Allow HTML formatting if applicable
+                from langchain.chains import VectorDBQA
+                persist_directory = 'db'
+                embedding = OpenAIEmbeddings()
+                vectordb = Chroma(persist_directory=persist_directory, embedding_function=embedding)
+                qa = VectorDBQA.from_chain_type(llm=OpenAI(), chain_type="stuff", vectorstore=vectordb)
+                answer = qa.run(text)
+                st.subheader("Question:")
+                st.write(text)
+                st.subheader("Answer:")
+                st.write(answer, unsafe_allow_html=True)  # Allow HTML formatting if applicable
+            
