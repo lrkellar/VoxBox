@@ -17,6 +17,8 @@ from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores import Chroma
 import chromadb
+import icecream as ic
+
 
 st.title("VoxBox")
 st.text("A minimal interface to an AI with domain knowledge - RAG AI")
@@ -25,6 +27,10 @@ openai_api_key = st.secrets["OPENAI_API_KEY"]
 PINECONE_ENV = st.secrets['fair_pinecone_env']
 pinecone_api_key = st.secrets['ritter_pinecone_api']
 pinecone_index = st.secrets["fair_pinecone_index"]
+
+with st.sidebar:
+    mode = st.sidebar.radio('Choose Mode: ', [1,3] )
+
 
 if mode == 1:
     @st.cache_resource
@@ -79,7 +85,7 @@ def get_pdf_text(pdf_docs):
             text += page.extract_text()
     return text
 
-def get_conversation_chain(vectorstore):
+def get_conversation_chain_og(vectorstore):
     llm = ChatOpenAI()
     # llm = HuggingFaceHub(repo_id="google/flan-t5-xxl", model_kwargs={"temperature":0.5, "max_length":512})
 
@@ -92,12 +98,49 @@ def get_conversation_chain(vectorstore):
     )
     return conversation_chain
 
-with st.form('my_form'):
-    text = st.text_area('Enter text: ', 'What questions do you have about fair housing law in Indiana?')
-    submitted = st.form_submit_button('Submit')
-    if submitted:
-        if len(text) > 0:
-            if mode == 1:
+def get_conversation_chain(vectorstore):
+    llm = ChatOpenAI()
+    # llm = HuggingFaceHub(repo_id="google/flan-t5-xxl", model_kwargs={"temperature":0.5, "max_length":512})
+
+    memory = ConversationBufferMemory(
+        memory_key='chat_history', return_messages=True)
+    conversation_chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=vectorstore.as_retriever(),
+        memory=memory,
+        return_source_documents=True
+    )
+    return conversation_chain
+
+def get_response(conversation, question):
+    result = conversation.predict(question)
+    answer = result["answer"]
+    docs = result.pop("source_documents")
+    
+    return answer, docs
+
+from htmlTemplates import css, bot_template, user_template
+def handle_userinput(user_question):
+    sample = user_question
+    st.sidebar.text(sample)
+    response = st.session_state.conversation({'question': user_question})
+    st.sidebar.text(ic(response))
+    st.session_state.chat_history = response['chat_history']
+
+    for i, message in enumerate(st.session_state.chat_history):
+        if i % 2 == 0:
+            st.write(user_template.replace(
+                "{{MSG}}", message.content), unsafe_allow_html=True)
+        else:
+            st.write(bot_template.replace(
+                "{{MSG}}", message.content), unsafe_allow_html=True)
+
+if mode == 1:
+    with st.form('my_form'):
+        text = st.text_area('Enter text: ', 'What questions do you have about fair housing law in Indiana?')
+        submitted = st.form_submit_button('Submit')
+        if submitted:
+            if len(text) > 0:
                 llm = ChatOpenAI(
                     openai_api_key=openai_api_key,
                     model_name='gpt-3.5-turbo',
@@ -124,15 +167,20 @@ with st.form('my_form'):
                     st.subheader("Sources:")
                     st.write(sources, unsafe_allow_html=True)  # Allow HTML formatting if applicable
 
-            if mode == 3:
-                from langchain.chains import VectorDBQA
-                persist_directory = 'db'
-                embedding = OpenAIEmbeddings()
-                vectordb = Chroma(persist_directory=persist_directory, embedding_function=embedding)
-                qa = VectorDBQA.from_chain_type(llm=OpenAI(), chain_type="stuff", vectorstore=vectordb)
-                answer = qa.run(text)
-                st.subheader("Question:")
-                st.write(text)
-                st.subheader("Answer:")
-                st.write(answer, unsafe_allow_html=True)  # Allow HTML formatting if applicable
-            
+if mode == 3:
+    # Database Setup
+    from langchain.chains import VectorDBQA
+    persist_directory = 'db'
+    embedding = OpenAIEmbeddings()
+    docsearch = Chroma(persist_directory=persist_directory, embedding_function=embedding)
+    # create conversation chain
+    st.session_state.conversation = get_conversation_chain(docsearch)
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = None
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = None
+
+    st.header("SOP discussion")
+    user_question = st.text_input("Ask a question about your documents:")
+    if user_question:
+        handle_userinput(user_question)
