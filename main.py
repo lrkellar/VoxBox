@@ -16,8 +16,7 @@ from langchain.chains import (
 from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores import Chroma
-import chromadb
-import icecream as ic
+
 
 
 st.title("VoxBox")
@@ -31,7 +30,7 @@ pinecone_index = st.secrets["fair_pinecone_index"]
 
 with st.sidebar:
     st.write("Please select what kind of knowledge you'd like the AI to have")
-    mode = st.radio('Choose Mode: ', ["Fair Housing","SOP"] )
+    mode = st.radio('Choose Mode: ', ["Fair Housing","SOP", "Cited SOP"] )
 
 if mode == "Fair Housing":
     @st.cache_resource
@@ -101,8 +100,7 @@ def get_conversation_chain(vectorstore):
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=vectorstore.as_retriever(),
-        memory=memory,
-        return_source_documents=True
+        memory=memory
     )
     return conversation_chain
 
@@ -159,13 +157,14 @@ if mode == "Fair Housing":
                     st.write(sources, unsafe_allow_html=True)  # Allow HTML formatting if applicable
 
 if mode == "SOP":
+
     # Database Setup
-    from langchain.chains import VectorDBQA
     persist_directory = 'db'
     embedding = OpenAIEmbeddings()
-    docsearch = Chroma(persist_directory=persist_directory, embedding_function=embedding)
+    vector_store = Chroma(persist_directory=persist_directory, embedding_function=embedding)
+
     # create conversation chain
-    st.session_state.conversation = get_conversation_chain(docsearch)
+    st.session_state.conversation = get_conversation_chain(vector_store)
     if "conversation" not in st.session_state:
         st.session_state.conversation = None
     if "chat_history" not in st.session_state:
@@ -175,3 +174,41 @@ if mode == "SOP":
     user_question = st.text_input("Ask a question about your documents:")
     if user_question:
         handle_userinput(user_question)
+
+if mode == "Cited SOP":
+    with st.form('my_form'):
+        # Database Setup
+        persist_directory = 'db'
+        embedding = OpenAIEmbeddings()
+        vector_store = Chroma(persist_directory=persist_directory, embedding_function=embedding)
+
+        text = st.text_area('Enter text: ', 'What questions do you have about SOPs?')
+        submitted = st.form_submit_button('Submit')
+
+        if submitted:
+            if len(text) > 0:
+                llm = ChatOpenAI(
+                    openai_api_key=openai_api_key,
+                    model_name='gpt-3.5-turbo',
+                    temperature=0.2
+                )
+                # OG) vector_store = embedding_db()
+                response_dict = rag_answer(text, vector_store=vector_store)  # Store the entire response dictionary
+
+                # Extract values from the dictionary
+                question = response_dict['question']
+                answer = response_dict['answer']
+                sources = response_dict['sources']
+
+                # Create a layout with columns for question/answer and sources
+                col1, col2 = st.columns([3, 1])  # Adjust column widths as needed
+
+                with col1:
+                    st.subheader("Question:")
+                    st.write(question)
+                    st.subheader("Answer:")
+                    st.write(answer, unsafe_allow_html=True)  # Allow HTML formatting if applicable
+
+                with col2:
+                    st.subheader("Sources:")
+                    st.write(sources, unsafe_allow_html=True)  # Allow HTML formatting if applicable
