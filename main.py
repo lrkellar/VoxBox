@@ -22,7 +22,7 @@ import icecream as ic
 
 st.title("VoxBox")
 st.text("A minimal interface to an AI with domain knowledge - RAG AI")
-mode = "Fair"
+mode = "Fair Housing"
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 PINECONE_ENV = st.secrets['fair_pinecone_env']
 pinecone_api_key = st.secrets['ritter_pinecone_api']
@@ -30,9 +30,10 @@ pinecone_index = st.secrets["fair_pinecone_index"]
 
 
 with st.sidebar:
-    mode = st.radio('Choose Mode: ', ["Fair","SOP"] )
+    st.write("Please select what kind of knowledge you'd like the AI to have")
+    mode = st.radio('Choose Mode: ', ["Fair Housing","SOP"] )
 
-if mode == "Fair":
+if mode == "Fair Housing":
     @st.cache_resource
     def embedding_db():
         embeddings = OpenAIEmbeddings()
@@ -132,7 +133,7 @@ def handle_userinput(user_question):
             st.write(bot_template.replace(
                 "{{MSG}}", message.content), unsafe_allow_html=True)
 
-if mode == "Fair":
+if mode == "Fair Housing":
     with st.form('my_form'):
         text = st.text_area('Enter text: ', 'What questions do you have about fair housing law in Indiana?')
         submitted = st.form_submit_button('Submit')
