@@ -1,5 +1,5 @@
 # voxbox venv
-from PyPDF2 import PdfReader
+
 import streamlit as st
 from langchain_community.llms import OpenAI
 import pinecone
@@ -78,13 +78,6 @@ def generate_response(input_text):
     llm = OpenAI(temperature=0.7, openai_api_key=openai_api_key)
     st.info(llm(input_text))
 
-def get_pdf_text(pdf_docs):
-    text = ""
-    for pdf in pdf_docs:
-        pdf_reader = PdfReader(pdf)
-        for page in pdf_reader.pages:
-            text += page.extract_text()
-    return text
 
 def get_conversation_chain_og(vectorstore):
     llm = ChatOpenAI()
