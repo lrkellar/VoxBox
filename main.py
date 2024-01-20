@@ -22,17 +22,17 @@ import icecream as ic
 
 st.title("VoxBox")
 st.text("A minimal interface to an AI with domain knowledge - RAG AI")
-mode = 3
+mode = "Fair"
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 PINECONE_ENV = st.secrets['fair_pinecone_env']
 pinecone_api_key = st.secrets['ritter_pinecone_api']
 pinecone_index = st.secrets["fair_pinecone_index"]
 
+
 with st.sidebar:
-    mode = st.sidebar.radio('Choose Mode: ', [1,3] )
+    mode = st.sidebar.radio('Choose Mode: ', ["Fair","SOP"] )
 
-
-if mode == 1:
+if mode == "Fair":
     @st.cache_resource
     def embedding_db():
         embeddings = OpenAIEmbeddings()
@@ -45,7 +45,7 @@ if mode == 1:
 
         return vector_store
 
-if mode == 3:
+if mode == "SOP":
     @st.cache_resource
     def chroma_hookup():
         embedding_function = OpenAIEmbeddings()
@@ -121,10 +121,7 @@ def get_response(conversation, question):
 
 from htmlTemplates import css, bot_template, user_template
 def handle_userinput(user_question):
-    sample = user_question
-    st.sidebar.text(sample)
     response = st.session_state.conversation({'question': user_question})
-    st.sidebar.text(ic(response))
     st.session_state.chat_history = response['chat_history']
 
     for i, message in enumerate(st.session_state.chat_history):
@@ -135,7 +132,7 @@ def handle_userinput(user_question):
             st.write(bot_template.replace(
                 "{{MSG}}", message.content), unsafe_allow_html=True)
 
-if mode == 1:
+if mode == "Fair":
     with st.form('my_form'):
         text = st.text_area('Enter text: ', 'What questions do you have about fair housing law in Indiana?')
         submitted = st.form_submit_button('Submit')
@@ -167,7 +164,7 @@ if mode == 1:
                     st.subheader("Sources:")
                     st.write(sources, unsafe_allow_html=True)  # Allow HTML formatting if applicable
 
-if mode == 3:
+if mode == "SOP":
     # Database Setup
     from langchain.chains import VectorDBQA
     persist_directory = 'db'
