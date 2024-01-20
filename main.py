@@ -30,7 +30,7 @@ pinecone_index = st.secrets["fair_pinecone_index"]
 
 
 with st.sidebar:
-    mode = st.sidebar.radio('Choose Mode: ', ["Fair","SOP"] )
+    mode = st.radio('Choose Mode: ', ["Fair","SOP"] )
 
 if mode == "Fair":
     @st.cache_resource
