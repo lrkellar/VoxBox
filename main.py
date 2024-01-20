@@ -1,5 +1,11 @@
 # voxbox venv
 
+# sqlite3 specification for streamlit cloud
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
+
 import streamlit as st
 from langchain_community.llms import OpenAI
 import pinecone
@@ -17,10 +23,6 @@ from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores import Chroma
 
-# sqlite3 specification for streamlit cloud
-__import__('pysqlite3')
-import sys
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 st.title("VoxBox")
 st.text("A minimal interface to an AI with domain knowledge - RAG AI")
