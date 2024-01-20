@@ -35,7 +35,7 @@ pinecone_index = st.secrets["fair_pinecone_index"]
 
 with st.sidebar:
     st.write("Please select what kind of knowledge you'd like the AI to have")
-    mode = st.radio('Choose Mode: ', ["Fair Housing","SOP", "Cited SOP"] )
+    mode = st.radio('Choose Mode: ', ["Fair Housing","SOP", "-Cited SOP- Under development"] )
 
 if mode == "Fair Housing":
     @st.cache_resource
@@ -180,7 +180,7 @@ if mode == "SOP":
     if user_question:
         handle_userinput(user_question)
 
-if mode == "Cited SOP":
+if mode == "-Cited SOP- Under development":
     with st.form('my_form'):
         # Database Setup
         persist_directory = 'db'
