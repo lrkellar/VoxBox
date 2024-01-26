@@ -1,17 +1,20 @@
 # voxbox venv
 
 # sqlite3 specification for streamlit cloud
-__import__('pysqlite3')
-import sys
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+commited = 0
+if commited == 1:
+    __import__('pysqlite3')
+    import sys
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
+debug = 1
 
 import streamlit as st
 from langchain_community.llms import OpenAI
 import pinecone
 from langchain_community.vectorstores import Pinecone
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 from langchain.chains import RetrievalQA
 from langchain.chains import RetrievalQAWithSourcesChain
 from langchain.chains import ConversationChain
@@ -22,7 +25,8 @@ from langchain.chains import (
 from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores import Chroma
-
+import time
+from  icecream import ic
 
 st.title("VoxBox")
 st.text("A minimal interface to an AI with domain knowledge - RAG AI")
@@ -32,14 +36,22 @@ PINECONE_ENV = st.secrets['fair_pinecone_env']
 pinecone_api_key = st.secrets['ritter_pinecone_api']
 pinecone_index = st.secrets["fair_pinecone_index"]
 
+def streamlit_debug_window(error_message : str):
+    with st.spinner(error_message):
+        time.sleep(3)  # Delay for 3 seconds
+
+# Clear the spinner and error message after the delay
+st.empty()
 
 with st.sidebar:
     st.write("Please select what kind of knowledge you'd like the AI to have")
-    mode = st.radio('Choose Mode: ', ["Fair Housing","SOP", "-Cited SOP- Under development"] )
+    mode = st.radio('Choose Mode: ', ["Fair Housing","SOP", "-Cited SOP- Under development", "SOP - dev2"] )
 
 if mode == "Fair Housing":
     @st.cache_resource
     def embedding_db():
+        if debug == 1:
+            streamlit_debug_window("embedding_db called")
         embeddings = OpenAIEmbeddings()
         pinecone.init(
             api_key = pinecone_api_key,
@@ -50,15 +62,19 @@ if mode == "Fair Housing":
 
         return vector_store
 
-if mode == "SOP":
+if mode == "SOP" or mode == "-Cited SOP- Under development":
     @st.cache_resource
     def chroma_hookup():
+        if debug == 1:
+            streamlit_debug_window("Chromahookup called")
+
         embedding_function = OpenAIEmbeddings()
         vector_store = Chroma(
             persist_directory="db", 
             embedding_function=embedding_function
         )
         return vector_store
+        
 
 def rag_answer(query, vector_store):
     qa_with_sources = RetrievalQAWithSourcesChain.from_chain_type(
@@ -66,7 +82,7 @@ def rag_answer(query, vector_store):
         chain_type="stuff",
         retriever=vector_store.as_retriever(),
     )
-    result = qa_with_sources(query)
+    result = qa_with_sources.invoke(query)
     return(result)
 
 def chroma_rag_answer(query, vector_store):
@@ -75,7 +91,7 @@ def chroma_rag_answer(query, vector_store):
         chain_type="stuff",
         retriever = vector_store.as_retriever(search_type="mmr")
     )
-    result = qa_with_sources(query)
+    result = qa_with_sources.invoke(query)
     return(result)
 
 def generate_response(input_text):
@@ -102,11 +118,28 @@ def get_conversation_chain(vectorstore):
 
     memory = ConversationBufferMemory(
         memory_key='chat_history', return_messages=True)
+
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=vectorstore.as_retriever(),
         memory=memory
     )
+    return conversation_chain
+
+def get_conversation_chain_and(vectorstore):
+    llm = ChatOpenAI()
+    # llm = HuggingFaceHub(repo_id="google/flan-t5-xxl", model_kwargs={"temperature":0.5, "max_length":512})
+
+    memory = ConversationBufferMemory(
+        memory_key='chat_history', return_messages=True, output_key='answer')
+
+    conversation_chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=vectorstore.as_retriever(),
+        memory=memory,
+        return_source_documents = True
+    )
+    st.text(ic(conversation_chain))
     return conversation_chain
 
 def get_response(conversation, question):
@@ -119,6 +152,18 @@ def get_response(conversation, question):
 from htmlTemplates import css, bot_template, user_template
 def handle_userinput(user_question):
     response = st.session_state.conversation({'question': user_question})
+    st.session_state.chat_history = response['chat_history']
+
+    for i, message in enumerate(st.session_state.chat_history):
+        if i % 2 == 0:
+            st.write(user_template.replace(
+                "{{MSG}}", message.content), unsafe_allow_html=True)
+        else:
+            st.write(bot_template.replace(
+                "{{MSG}}", message.content), unsafe_allow_html=True)
+            
+def handle_userinput2(user_question):
+    response = st.session_state.conversation({'question': user_question, 'answer': docs})
     st.session_state.chat_history = response['chat_history']
 
     for i, message in enumerate(st.session_state.chat_history):
@@ -176,7 +221,7 @@ if mode == "SOP":
         st.session_state.chat_history = None
 
     st.header("SOP discussion")
-    user_question = st.text_input("Ask a question about your documents:")
+    user_question = st.text_input("I am the on call technician. What do I do about a leak?:")
     if user_question:
         handle_userinput(user_question)
 
@@ -185,9 +230,8 @@ if mode == "-Cited SOP- Under development":
         # Database Setup
         persist_directory = 'db'
         embedding = OpenAIEmbeddings()
-        vector_store = Chroma(persist_directory=persist_directory, embedding_function=embedding)
-
-        text = st.text_area('Enter text: ', 'What questions do you have about SOPs?')
+        vector_store = chroma_hookup()
+        text = st.text_area('Enter text: ', 'I am the on call technician. What do I do about a leak?')
         submitted = st.form_submit_button('Submit')
 
         if submitted:
@@ -198,6 +242,7 @@ if mode == "-Cited SOP- Under development":
                     temperature=0.2
                 )
                 # OG) vector_store = embedding_db()
+                
                 response_dict = rag_answer(text, vector_store=vector_store)  # Store the entire response dictionary
 
                 # Extract values from the dictionary
@@ -217,3 +262,23 @@ if mode == "-Cited SOP- Under development":
                 with col2:
                     st.subheader("Sources:")
                     st.write(sources, unsafe_allow_html=True)  # Allow HTML formatting if applicable
+
+if mode == "SOP - dev2":
+
+    # Database Setup
+    persist_directory = 'db'
+    embedding = OpenAIEmbeddings()
+    vector_store = Chroma(persist_directory=persist_directory, embedding_function=embedding)
+
+    # create conversation chain
+    st.text( get_conversation_chain_and(vector_store))
+    st.session_state.conversation = get_conversation_chain_and(vector_store)
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = None
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = None
+
+    st.header("SOP discussion")
+    user_question = st.text_input("I am the on call technician. What do I do about a leak?:")
+    if user_question:
+        handle_userinput2(user_question)
