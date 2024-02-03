@@ -7,7 +7,7 @@ if commited == 1:
     import sys
     sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
-debug = 0
+debug = 1
 
 import streamlit as st
 from langchain_community.llms import OpenAI
