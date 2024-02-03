@@ -81,7 +81,7 @@ def chroma_hookup():
 vectordb = chroma_hookup()
 
 @st.cache_resource
-def db_prep(texts, persist_directory = "db"):
+def db_prep(persist_directory = "db"):
     embedding = OpenAIEmbeddings(api_key=st.secrets['OPENAI_API_KEY'])
     # og: vectordb = Chroma.from_documents(documents=texts, embedding=embedding, persist_directory=persist_directory)
     vectordb = Chroma.from_documents(embedding=embedding, persist_directory=persist_directory)
