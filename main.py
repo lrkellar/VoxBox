@@ -1,7 +1,7 @@
 # voxbox venv
 
 # sqlite3 specification for streamlit cloud
-commited = 0
+commited = 1
 if commited == 1:
     __import__('pysqlite3')
     import sys
