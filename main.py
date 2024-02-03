@@ -65,18 +65,19 @@ if mode == "Fair Housing":
 
         return vector_store
 
-#if mode == "SOP" or mode == "SOP Citations":
-@st.cache_resource
-def chroma_hookup():
-    if debug == 1:
-        streamlit_debug_window("Chromahookup called")
+if mode == "SOP" or mode == "SOP Citations":
+    @st.cache_resource
+    def chroma_hookup():
+        if debug == 1:
+            streamlit_debug_window("Chromahookup called")
 
-    embedding_function = OpenAIEmbeddings()
-    vector_store = Chroma(
-        persist_directory="db", 
-        embedding_function=embedding_function
-    )
-    return vector_store
+        embedding_function = OpenAIEmbeddings()
+        vector_store = Chroma(
+            persist_directory="db", 
+            embedding_function=embedding_function
+        )
+        return vector_store
+    chroma_hookup()
         
 
 def rag_answer(query, vector_store):
