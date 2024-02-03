@@ -329,6 +329,8 @@ if mode == "SOP Citations":
         embedding_function=embedding_function
     )
     ic(vectordb)
+    db_check = vectordb.get()
+    ic(db_check)
     vectordb.similarity_search("")
     conversation = ["Welcome to your SOP guide"]
     chat_window = st.text(conversation)
