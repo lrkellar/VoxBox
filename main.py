@@ -7,7 +7,7 @@ if commited == 1:
     import sys
     sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
-debug = 1
+debug = 0
 
 import streamlit as st
 from langchain_community.llms import OpenAI
@@ -27,10 +27,13 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores import Chroma
 import time
 from  icecream import ic
+import re
+from langchain.chains import create_citation_fuzzy_match_chain
+
 
 st.title("VoxBox")
 st.text("A minimal interface to an AI with domain knowledge - RAG AI")
-mode = "Fair Housing"
+mode = "SOP Citations"
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 PINECONE_ENV = st.secrets['fair_pinecone_env']
 pinecone_api_key = st.secrets['ritter_pinecone_api']
@@ -45,7 +48,7 @@ st.empty()
 
 with st.sidebar:
     st.write("Please select what kind of knowledge you'd like the AI to have")
-    mode = st.radio('Choose Mode: ', ["Fair Housing","SOP", "-Cited SOP- Under development", "SOP - dev2"] )
+    mode = st.radio('Choose Mode: ', ["SOP Citations", "Fair Housing","SOP", "-Cited SOP- Under development"] )
 
 if mode == "Fair Housing":
     @st.cache_resource
@@ -62,7 +65,7 @@ if mode == "Fair Housing":
 
         return vector_store
 
-if mode == "SOP" or mode == "-Cited SOP- Under development":
+if mode == "SOP" or mode == "SOP Citations":
     @st.cache_resource
     def chroma_hookup():
         if debug == 1:
@@ -139,7 +142,8 @@ def get_conversation_chain_and(vectorstore):
         memory=memory,
         return_source_documents = True
     )
-    st.text(ic(conversation_chain))
+    with st.text(ic(conversation_chain)):
+        time.sleep(10)
     return conversation_chain
 
 def get_response(conversation, question):
@@ -163,16 +167,70 @@ def handle_userinput(user_question):
                 "{{MSG}}", message.content), unsafe_allow_html=True)
             
 def handle_userinput2(user_question):
-    response = st.session_state.conversation({'question': user_question, 'answer': docs})
+    response = st.session_state.conversation({'question': user_question})
     st.session_state.chat_history = response['chat_history']
+    # Three columns with different widths
+    col1, col2, col3 = st.columns([3,1,1])
+    # col1 is wider
 
-    for i, message in enumerate(st.session_state.chat_history):
-        if i % 2 == 0:
-            st.write(user_template.replace(
-                "{{MSG}}", message.content), unsafe_allow_html=True)
-        else:
-            st.write(bot_template.replace(
-                "{{MSG}}", message.content), unsafe_allow_html=True)
+    # Using 'with' notation:
+    with col1:
+        for i, message in enumerate(st.session_state.chat_history):
+            if i % 2 == 0:
+                st.write(user_template.replace(
+                    "{{MSG}}", message.content), unsafe_allow_html=True)
+            else:
+                st.write(bot_template.replace(
+                    "{{MSG}}", message.content), unsafe_allow_html=True)
+    with col2:
+        st.text(response.keys())
+        st.text(response['context'])
+
+def cleaner(inputa : str) -> str:
+    regex = r".*\\(.*)"
+
+    match = re.search(regex, inputa) # Access the first group (entire match)
+    return match
+
+def highlight(text, span):
+    return (
+        "..."
+        + text[span[0] - 20 : span[0]]
+        + "*"
+        + "\033[91m"
+        + text[span[0] : span[1]]
+        + "\033[0m"
+        + "*"
+        + text[span[1] : span[1] + 20]
+        + "..."
+    )
+
+def unpack_answer(incoming):
+    staging = ""
+    for x in range(len(incoming['text'].answer)):
+        stage2 = incoming['text'].answer[x].fact
+        staging = f"{staging} \n\n {x+1}. {stage2}"
+    return staging
+
+def unpack_citations(incoming):
+    staging = ""
+    for x in range(len(incoming['text'].answer)):
+        stage2 = incoming['text'].answer[x].substring_quote
+        staging = f"{staging}  \n\n {x+1}:{stage2}"
+    return staging
+
+def citation_chain(question, context, debug_mode = 0):
+    llm = ChatOpenAI(temperature=0, model="gpt-3.5-turbo-0613", api_key=st.secrets['OPENAI_API_KEY'])
+
+
+    chain = create_citation_fuzzy_match_chain(llm)
+
+    result2 = chain.invoke({'question': question, 'context' : context})
+    result_staging = result2['text']
+    ic(result_staging)
+    #ic(result2)
+    return(result2)
+
 
 if mode == "Fair Housing":
     with st.form('my_form'):
@@ -263,22 +321,29 @@ if mode == "-Cited SOP- Under development":
                     st.subheader("Sources:")
                     st.write(sources, unsafe_allow_html=True)  # Allow HTML formatting if applicable
 
-if mode == "SOP - dev2":
+if mode == "SOP Citations":
+    vectordb = chroma_hookup()
 
-    # Database Setup
-    persist_directory = 'db'
-    embedding = OpenAIEmbeddings()
-    vector_store = Chroma(persist_directory=persist_directory, embedding_function=embedding)
+    conversation = ["Welcome to your SOP guide"]
+    chat_window = st.text(conversation)
 
-    # create conversation chain
-    st.text( get_conversation_chain_and(vector_store))
-    st.session_state.conversation = get_conversation_chain_and(vector_store)
-    if "conversation" not in st.session_state:
-        st.session_state.conversation = None
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = None
+    text_input = st.text_input(label="What would you like help with?",value="....")
 
-    st.header("SOP discussion")
-    user_question = st.text_input("I am the on call technician. What do I do about a leak?:")
-    if user_question:
-        handle_userinput2(user_question)
+
+    if text_input:
+        query = text_input
+        context = vectordb.similarity_search(query)
+        results = citation_chain(question=query, context=context)
+        citations = unpack_citations(results)
+
+        st.subheader("Results")
+        st.markdown(unpack_answer(results))
+        tab1, tab2 = st.tabs(["Citations", "Sources"])
+        tab1.write(citations)
+
+        if 'context' in results and len(results['context']) > 1:
+            source1_raw = results['context'][1].metadata['source']
+            source1 = cleaner(source1_raw)
+            tab2.write(source1[1])
+
+        # st.markdown("[google](www.google.com)") # Example of markdown hyperlink
