@@ -79,7 +79,12 @@ def chroma_hookup():
     )
     return vector_store
 vectordb = chroma_hookup()
-        
+
+@st.cache_resource
+def db_prep(texts, persist_directory = "db"):
+    embedding = OpenAIEmbeddings(api_key=st.secrets['OPENAI_API_KEY'])
+    vectordb = Chroma.from_documents(documents=texts, embedding=embedding, persist_directory=persist_directory)
+    return vectordb
 
 def rag_answer(query, vector_store):
     qa_with_sources = RetrievalQAWithSourcesChain.from_chain_type(
@@ -324,11 +329,10 @@ if mode == "-Cited SOP- Under development":
                     st.write(sources, unsafe_allow_html=True)  # Allow HTML formatting if applicable
 
 if mode == "SOP Citations":
-    #vectordb = chroma_hookup()
-
+    vectordb = db_prep()
+    print("db_prep run")
     db_check = vectordb.get()
     ic(db_check)
-    vectordb.similarity_search("")
     conversation = ["Welcome to your SOP guide"]
     chat_window = st.text(conversation)
 
