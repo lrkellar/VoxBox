@@ -84,7 +84,7 @@ vectordb = chroma_hookup()
 def db_prep(persist_directory = "db"):
     embedding = OpenAIEmbeddings(api_key=st.secrets['OPENAI_API_KEY'])
     # og: vectordb = Chroma.from_documents(documents=texts, embedding=embedding, persist_directory=persist_directory)
-    vectordb = Chroma.from_documents(embedding=embedding, persist_directory=persist_directory)
+    vectordb = Chroma(embedding=embedding, persist_directory=persist_directory)
     return vectordb
 
 def rag_answer(query, vector_store):
