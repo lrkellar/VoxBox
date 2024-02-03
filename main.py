@@ -323,7 +323,7 @@ if mode == "-Cited SOP- Under development":
 
 if mode == "SOP Citations":
     vectordb = chroma_hookup()
-
+    ic(vectordb)
     conversation = ["Welcome to your SOP guide"]
     chat_window = st.text(conversation)
 
