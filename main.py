@@ -78,7 +78,7 @@ def chroma_hookup():
         embedding_function=embedding_function
     )
     return vector_store
-chroma_hookup()
+vectordb = chroma_hookup()
         
 
 def rag_answer(query, vector_store):
@@ -324,7 +324,7 @@ if mode == "-Cited SOP- Under development":
                     st.write(sources, unsafe_allow_html=True)  # Allow HTML formatting if applicable
 
 if mode == "SOP Citations":
-    vectordb = chroma_hookup()
+    #vectordb = chroma_hookup()
 
     db_check = vectordb.get()
     ic(db_check)
