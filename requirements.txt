@@ -11,3 +11,4 @@ unstructured
 unstructured[pdf]
 langchain_openai
 langchain-openai
+icecream
