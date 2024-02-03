@@ -7,3 +7,6 @@ PyPDF2 == 3.0.1
 langchain_community
 chromadb
 pysqlite3-binary
+unstructured
+unstructured[pdf]
+langchain_openai
