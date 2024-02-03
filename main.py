@@ -322,8 +322,14 @@ if mode == "-Cited SOP- Under development":
                     st.write(sources, unsafe_allow_html=True)  # Allow HTML formatting if applicable
 
 if mode == "SOP Citations":
-    vectordb = chroma_hookup()
+    # vectordb = chroma_hookup()
+    embedding_function = OpenAIEmbeddings()
+    vectordb = Chroma(
+        persist_directory="db", 
+        embedding_function=embedding_function
+    )
     ic(vectordb)
+    vectordb.similarity_search("")
     conversation = ["Welcome to your SOP guide"]
     chat_window = st.text(conversation)
 
